@@ -157,10 +157,10 @@ packages:
     dependency: "direct dev"
     description:
       name: bloc_lint
-      sha256: "4ba9c78d73f97c5175eb2c419f94e6d8211edd06ace1783ea32dc64f865e0f38"
+      sha256: "48d141f67552cc83703d5735f27ae9c549e4705b543e053eab77fa6cfa44ccf4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.5"
+    version: "0.3.7"
   bloc_test:
     dependency: "direct dev"
     description:
@@ -1884,4 +1884,4 @@ packages:
     version: "2.1.0"
 sdks:
   dart: ">=3.11.0 <4.0.0"
-  flutter: ">=3.38.4 <4.0.0"
+  flutter: ">=3.38.4"
