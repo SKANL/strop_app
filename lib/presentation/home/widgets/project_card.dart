@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' show Colors, Icons;
 import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:shadcn_flutter/shadcn_flutter.dart' hide Colors;
 import 'package:strop_app/domain/entities/project.dart';
 
 class ProjectCard extends StatelessWidget {
@@ -13,185 +13,252 @@ class ProjectCard extends StatelessWidget {
   });
 
   final Project project;
-  final double? distance; // Distance in km
+  final double? distance;
 
   @override
   Widget build(BuildContext context) {
-    final isNearby = distance != null && distance! < 0.1; // < 100m
+    final theme = Theme.of(context);
+    final isNearby = distance != null && distance! < 0.1;
 
-    return shadcn.Card(
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onTap: () {
-          unawaited(context.push('/project-dashboard', extra: project));
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Project Image
-            if (project.imageUrl != null)
-              SizedBox(
-                height: 150,
-                width: double.infinity,
-                child: Hero(
-                  tag: 'project_image_${project.id}',
-                  child: CachedNetworkImage(
-                    imageUrl: project.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[300],
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[300],
-                      child: const Icon(
-                        Icons.business,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Container(
-                height: 150,
-                width: double.infinity,
-                color: Colors.grey[300],
-                child: const Icon(
-                  Icons.business,
-                  size: 64,
-                  color: Colors.grey,
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(theme.radiusLg),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () =>
+                unawaited(context.push('/project-dashboard', extra: project)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Image ───────────────────────────────────────────────
+                _ProjectImage(project: project),
 
-            // Project Info
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title Row with Distance Badge
-                  Row(
+                // ── Body ────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          project.name,
-                          style: shadcn.Theme.of(context).typography.h4
-                              .copyWith(
-                                fontSize: 18,
-                              ),
-                        ),
-                      ),
-                      if (distance != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isNearby ? Colors.green : Colors.blue,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.location_on,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                isNearby
-                                    ? 'Estás aquí'
-                                    : '${distance!.toStringAsFixed(1)} km',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Address
-                  Text(
-                    project.address,
-                    style: shadcn.Theme.of(context).typography.small.copyWith(
-                      color: shadcn.Theme.of(
-                        context,
-                      ).colorScheme.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Status Row
-                  Row(
-                    children: [
-                      // Critical Incidents Badge
-                      if (project.criticalIncidents > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.warning,
-                                size: 12,
-                                color: Colors.red,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${project.criticalIncidents} críticos',
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (project.criticalIncidents > 0)
-                        const SizedBox(width: 8),
-
-                      // Sync Status
-                      Icon(
-                        project.isSynced ? Icons.check_circle : Icons.pending,
-                        size: 16,
-                        color: project.isSynced ? Colors.green : Colors.orange,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        project.isSynced ? 'Synced' : 'Pending',
-                        style: shadcn.Theme.of(context).typography.small
-                            .copyWith(
-                              color: project.isSynced
-                                  ? Colors.green
-                                  : Colors.orange,
+                      // Name + distance badge
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              project.name,
+                              style: theme.typography.h4
+                                  .copyWith(fontSize: 15),
                             ),
+                          ),
+                          if (distance != null) ...[
+                            const SizedBox(width: 8),
+                            _DistanceBadge(
+                                km: distance!, isNearby: isNearby),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // Address
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 12,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              project.address,
+                              style: theme.typography.small.copyWith(
+                                color: theme.colorScheme.mutedForeground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Divider
+                      Container(
+                        height: 1,
+                        color: theme.colorScheme.border,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Status row
+                      Row(
+                        children: [
+                          _SyncBadge(isSynced: project.isSynced),
+                          if (project.criticalIncidents > 0) ...[
+                            const SizedBox(width: 8),
+                            _CriticalBadge(
+                                count: project.criticalIncidents),
+                          ],
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+// ── Sub-widgets ──────────────────────────────────────────────────────────────
+
+class _ProjectImage extends StatelessWidget {
+  const _ProjectImage({required this.project});
+
+  final Project project;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget placeholder = Container(
+      height: 140,
+      width: double.infinity,
+      color: theme.colorScheme.muted,
+      child: Icon(
+        Icons.domain_rounded,
+        size: 48,
+        color: theme.colorScheme.mutedForeground,
+      ),
+    );
+
+    if (project.imageUrl == null) return placeholder;
+
+    return SizedBox(
+      height: 140,
+      width: double.infinity,
+      child: Hero(
+        tag: 'project_image_${project.id}',
+        child: CachedNetworkImage(
+          imageUrl: project.imageUrl!,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => placeholder,
+          errorWidget: (_, __, ___) => placeholder,
+        ),
+      ),
+    );
+  }
+}
+
+class _DistanceBadge extends StatelessWidget {
+  const _DistanceBadge({required this.km, required this.isNearby});
+
+  final double km;
+  final bool isNearby;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color =
+        isNearby ? Colors.green : theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.location_on, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            isNearby ? 'Estás aquí' : '${km.toStringAsFixed(1)} km',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CriticalBadge extends StatelessWidget {
+  const _CriticalBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: Colors.red.withValues(alpha: 0.4), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 11, color: Colors.red),
+          const SizedBox(width: 3),
+          Text(
+            '$count críticos',
+            style: const TextStyle(
+              color: Colors.red,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.isSynced});
+
+  final bool isSynced;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = isSynced ? Colors.green : Colors.orange;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isSynced
+              ? Icons.cloud_done_outlined
+              : Icons.cloud_upload_outlined,
+          size: 13,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          isSynced ? 'Sincronizado' : 'Pendiente',
+          style: theme.typography.small
+              .copyWith(color: color, fontSize: 11),
+        ),
+      ],
     );
   }
 }

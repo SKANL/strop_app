@@ -269,7 +269,7 @@ class _AudioRecordingWidgetState extends State<AudioRecordingWidget> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _isRecording ? 'Recording...' : 'Add Audio Note',
+                  _isRecording ? 'Grabando...' : 'Añadir nota de voz',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -286,7 +286,7 @@ class _AudioRecordingWidgetState extends State<AudioRecordingWidget> {
                   )
                 else
                   Text(
-                    'Tap or hold to record',
+                    'Toca o mantén para grabar',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],

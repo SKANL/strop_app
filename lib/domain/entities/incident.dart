@@ -15,11 +15,12 @@ enum Trade {
 }
 
 class Incident extends Equatable {
-
   const Incident({
     required this.id,
     required this.title,
-    required this.location, required this.createdAt, this.description,
+    required this.location,
+    required this.createdAt,
+    this.description,
     this.specificLocation,
     this.status = IncidentStatus.pending,
     this.priority = IncidentPriority.normal,

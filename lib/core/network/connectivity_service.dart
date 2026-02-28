@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ConnectivityService {
-
   ConnectivityService(this._connectivity) {
     _connectivity.onConnectivityChanged.listen((results) {
       final isConnected = !results.contains(ConnectivityResult.none);

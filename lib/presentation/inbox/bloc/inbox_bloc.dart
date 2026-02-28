@@ -107,8 +107,24 @@ class InboxBloc extends Bloc<InboxEvent, InboxState> {
     DeleteIncident event,
     Emitter<InboxState> emit,
   ) async {
-    // Delete not implemented in repository for this demo,
-    // but conceptually similar to update
+    try {
+      await _incidentRepository.deleteIncident(event.incident.id);
+
+      // Optimistic update for immediate UI feedback while stream updates.
+      _allIncidents.removeWhere((i) => i.id == event.incident.id);
+      if (state is InboxLoaded) {
+        final currentState = state as InboxLoaded;
+        emit(
+          _filterIncidents(
+            _allIncidents,
+            currentState.currentTab,
+            currentState.searchQuery,
+          ),
+        );
+      }
+    } on Exception {
+      // Keep current state; stream/retry strategy can handle error paths.
+    }
   }
 
   InboxLoaded _filterIncidents(

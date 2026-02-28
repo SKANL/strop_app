@@ -1,12 +1,13 @@
 import 'package:equatable/equatable.dart';
 
 class Project extends Equatable {
-
   const Project({
     required this.id,
     required this.name,
     required this.address,
-    required this.latitude, required this.longitude, this.imageUrl,
+    required this.latitude,
+    required this.longitude,
+    this.imageUrl,
     this.criticalIncidents = 0,
     this.isSynced = true,
   });

@@ -4,6 +4,7 @@ abstract class IncidentRepository {
   Future<List<Incident>> getIncidents();
   Future<void> createIncident(Incident incident);
   Future<void> updateIncident(Incident incident);
+  Future<void> deleteIncident(String incidentId);
   Future<void> syncPendingIncidents();
   Stream<List<Incident>> get incidentsStream;
   Future<int> getPendingIncidentCount();

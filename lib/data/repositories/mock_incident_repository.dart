@@ -3,7 +3,6 @@ import 'package:strop_app/domain/entities/incident.dart';
 import 'package:strop_app/domain/repositories/incident_repository.dart';
 
 class MockIncidentRepository implements IncidentRepository {
-
   MockIncidentRepository() {
     _controller.add(_incidents);
   }
@@ -74,6 +73,13 @@ class MockIncidentRepository implements IncidentRepository {
       _incidents[index] = incident;
       _controller.add(List.from(_incidents));
     }
+  }
+
+  @override
+  Future<void> deleteIncident(String incidentId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    _incidents.removeWhere((i) => i.id == incidentId);
+    _controller.add(List.from(_incidents));
   }
 
   @override

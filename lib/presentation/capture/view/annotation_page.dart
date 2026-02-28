@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_painter/image_painter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:strop_app/core/widgets/step_progress_bar.dart';
 import 'package:uuid/uuid.dart';
 
 class AnnotationPage extends StatefulWidget {
@@ -70,7 +71,7 @@ class _AnnotationPageState extends State<AnnotationPage> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text(
-          'Annotate (${_currentPage + 1}/${widget.imageFiles.length})',
+          'Anotar (${_currentPage + 1}/${widget.imageFiles.length})',
         ),
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -80,6 +81,10 @@ class _AnnotationPageState extends State<AnnotationPage> {
             onPressed: _done,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(6),
+          child: StepProgressBar(current: 2, total: 3),
+        ),
       ),
       body: Column(
         children: [
@@ -93,10 +98,12 @@ class _AnnotationPageState extends State<AnnotationPage> {
                 });
               },
               itemBuilder: (context, index) {
-                return ImagePainter.file(
-                  widget.imageFiles[index],
-                  controller: _controllers[index],
-                  scalable: true,
+                return _KeepAliveWrapper(
+                  child: ImagePainter.file(
+                    widget.imageFiles[index],
+                    controller: _controllers[index],
+                    scalable: true,
+                  ),
                 );
               },
             ),
@@ -126,5 +133,26 @@ class _AnnotationPageState extends State<AnnotationPage> {
         ],
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

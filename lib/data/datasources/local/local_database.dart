@@ -179,4 +179,20 @@ CREATE TABLE sync_queue (
       whereArgs: [incidentId],
     );
   }
+
+  Future<void> deleteIncident(String incidentId) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'photos',
+        where: 'incident_id = ?',
+        whereArgs: [incidentId],
+      );
+      await txn.delete(
+        'incidents',
+        where: 'id = ?',
+        whereArgs: [incidentId],
+      );
+    });
+  }
 }

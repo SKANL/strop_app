@@ -37,7 +37,7 @@ class _CapturePageState extends State<CapturePage> {
               children: [
                 const Icon(Icons.error, color: Colors.red),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Could not capture image: $e')),
+                Expanded(child: Text('No se pudo capturar la imagen: $e')),
               ],
             ),
           ),
@@ -106,7 +106,7 @@ class _CapturePageState extends State<CapturePage> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    '${_images.length} photos',
+                    '${_images.length} fotos',
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
@@ -120,11 +120,11 @@ class _CapturePageState extends State<CapturePage> {
                 children: [
                   shadcn.Button.outline(
                     onPressed: _retake,
-                    child: const Text('Retake'),
+                    child: const Text('Retomar'),
                   ),
                   shadcn.Button.primary(
                     onPressed: _next,
-                    child: const Text('Use Photos'),
+                    child: const Text('Usar fotos'),
                   ),
                 ],
               ),
@@ -141,11 +141,11 @@ class _CapturePageState extends State<CapturePage> {
           children: [
             const Icon(Icons.camera_alt, size: 64, color: Colors.grey),
             const SizedBox(height: 20),
-            const Text('No image captured'),
+            const Text('Sin imagen capturada'),
             const SizedBox(height: 20),
             shadcn.Button.primary(
               onPressed: _pickImage,
-              child: const Text('Open Camera'),
+              child: const Text('Abrir cámara'),
             ),
           ],
         ),

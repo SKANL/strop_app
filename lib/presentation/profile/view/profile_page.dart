@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/material.dart';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:strop_app/app/di/service_locator.dart';
 import 'package:strop_app/core/services/cache_service.dart';
+import 'package:strop_app/core/widgets/strop_dialog.dart';
 import 'package:strop_app/domain/entities/incident.dart';
 import 'package:strop_app/domain/repositories/auth_repository.dart';
 import 'package:strop_app/domain/repositories/incident_repository.dart';
@@ -23,52 +25,18 @@ class ProfilePage extends StatelessWidget {
     if (!context.mounted) return;
 
     if (pendingCount > 0) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await StropDialog.confirm(
         context: context,
-        builder: (context) {
-          return shadcn.AlertDialog(
-            title: const Text('Warning: Unsynced Data'),
-            content: Text(
-              'You have $pendingCount unsynced items. '
-              'Logging out now will delete them permanently.',
-            ),
-            actions: [
-              shadcn.Button.ghost(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              shadcn.Button.destructive(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Logout Anyway'),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirmed != true) return;
-    } else {
-      // Standard confirmation if no pending data
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) {
-          return shadcn.AlertDialog(
-            title: const Text('Confirm Logout'),
-            content: const Text('Are you sure you want to log out?'),
-            actions: [
-              shadcn.Button.ghost(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              shadcn.Button.destructive(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Logout'),
-              ),
-            ],
-          );
-        },
+        title: 'Datos sin sincronizar',
+        body: 'Tienes $pendingCount registros sin sincronizar. '
+            'Si cierras sesión ahora se perderán permanentemente.',
+        confirmLabel: 'Cerrar Sesión',
+        cancelLabel: 'Cancelar',
+        isDestructive: true,
       );
       if (confirmed != true) return;
     }
+    // pendingCount == 0 → log out directly, no confirmation needed.
 
     if (context.mounted) {
       await sl<AuthRepository>().logOut();
@@ -90,89 +58,175 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.read<AuthBloc>().state.user;
+    final displayName = (user.name?.isNotEmpty ?? false)
+        ? user.name!
+        : user.email.split('@').first;
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
-      body: ListView(
+      headers: [
+        AppBar(title: const Text('Perfil')),
+      ],
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // User Header
-          Center(
-            child: Column(
+          // ── User header card ─────────────────────────────────────────────
+          Card(
+            child: Row(
               children: [
-                const CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.grey,
-                  child: Icon(Icons.person, size: 40, color: Colors.white),
+                Semantics(
+                  label: 'Avatar de usuario',
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      displayName.isNotEmpty
+                          ? displayName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Field Worker',
-                  style: shadcn.Theme.of(context).typography.h4,
-                ),
-                Text(
-                  context.read<AuthBloc>().state.user.email,
-                  style: shadcn.Theme.of(context).typography.small.copyWith(
-                    color: shadcn.Theme.of(context).colorScheme.mutedForeground,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: theme.typography.p.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        user.email,
+                        style: theme.typography.small.copyWith(
+                          color: theme.colorScheme.mutedForeground,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-          // Sync Hub
-          Text('Sync Status', style: shadcn.Theme.of(context).typography.h4),
-          const SizedBox(height: 16),
-          const SyncHub(),
-
-          const SizedBox(height: 32),
-
-          // Storage & Data
-          Text('Storage & Data', style: shadcn.Theme.of(context).typography.h4),
-          const SizedBox(height: 16),
-          const CacheManagementTile(),
+          // ── Sync Hub ─────────────────────────────────────────────────────
+          Text('Estado de Sincronización', style: theme.typography.h4),
           const SizedBox(height: 12),
+          const SyncHub(),
+          const SizedBox(height: 24),
+
+          // ── Storage & Data ────────────────────────────────────────────────
+          Text('Almacenamiento y Datos', style: theme.typography.h4),
+          const SizedBox(height: 12),
+          const CacheManagementTile(),
+          const SizedBox(height: 10),
           const OfflineSettingsTile(),
+          const SizedBox(height: 24),
 
-          const SizedBox(height: 32),
+          // ── Support ──────────────────────────────────────────────────────
+          Text('Soporte', style: theme.typography.h4),
+          const SizedBox(height: 12),
+          _SupportTile(onTap: () => _openWhatsApp(context)),
+          const SizedBox(height: 24),
 
-          // Support
-          Text('Support', style: shadcn.Theme.of(context).typography.h4),
-          const SizedBox(height: 16),
-          shadcn.Card(
-            child: ListTile(
-              leading: const Icon(Icons.help_outline, color: Colors.green),
-              title: const Text('Contact Support'),
-              subtitle: const Text('Chat with us on WhatsApp'),
-              onTap: () => _openWhatsApp(context),
-              trailing: const Icon(Icons.chevron_right),
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Logout
-          shadcn.Button.outline(
+          // ── Sign Out ─────────────────────────────────────────────────────
+          Button(
+            style: const ButtonStyle.outline(),
             onPressed: () => _logout(context),
-            child: const Center(child: Text('Logout')),
+            child: const Center(child: Text('Cerrar Sesión')),
           ),
-          const SizedBox(height: 32),
-          Center(
-            child: Text(
-              'Version 1.0.0 (Build 240)',
-              style: shadcn.Theme.of(context).typography.small.copyWith(
-                color: shadcn.Theme.of(context).colorScheme.mutedForeground,
-              ),
-            ),
-          ),
+          const SizedBox(height: 24),
+
+          // ── App version (dynamic) ─────────────────────────────────────────
+          const _AppVersionText(),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Support Tile — replaces Material ListTile
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SupportTile extends StatelessWidget {
+  const _SupportTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFdcfce7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.support_agent_rounded,
+                  size: 20,
+                  color: Color(0xFF15803D),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Contactar Soporte',
+                      style: theme.typography.p.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Chatea con nosotros por WhatsApp',
+                      style: theme.typography.small.copyWith(
+                        color: theme.colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.mutedForeground,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SyncHub
 class SyncHub extends StatefulWidget {
   const SyncHub({super.key});
 
@@ -193,18 +247,36 @@ class _SyncHubState extends State<SyncHub> {
     try {
       await sl<IncidentRepository>().syncPendingIncidents();
       if (mounted) {
-        shadcn.showToast(
+        showToast(
           context: context,
-          builder: (context, overlay) =>
-              const shadcn.Card(child: Text('Sync completed')),
+          builder: (context, overlay) => const Card(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_done_rounded,
+                    color: Color(0xFF16a34a), size: 18),
+                SizedBox(width: 8),
+                Text('Sincronización completada'),
+              ],
+            ),
+          ),
         );
       }
     } on Exception catch (e) {
       if (mounted) {
-        shadcn.showToast(
+        showToast(
           context: context,
-          builder: (context, overlay) =>
-              shadcn.Card(child: Text('Sync failed: $e')),
+          builder: (context, overlay) => Card(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Color(0xFFB91C1C), size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Error al sincronizar: $e')),
+              ],
+            ),
+          ),
         );
       }
     } finally {
@@ -230,26 +302,23 @@ class _SyncHubState extends State<SyncHub> {
             .where((i) => i.syncStatus == SyncStatus.error)
             .length;
 
-        return shadcn.Card(
+        return Card(
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
+                  _StatItem(label: 'Total', value: total.toString()),
                   _StatItem(
-                    label: 'Total',
-                    value: total.toString(),
-                  ),
-                  _StatItem(
-                    label: 'Pending',
+                    label: 'Pendientes',
                     value: pending.toString(),
                     isWarning: pending > 0,
                   ),
                   _StatItem(
-                    label: 'Errors',
+                    label: 'Errores',
                     value: errors.toString(),
                     isWarning: errors > 0,
-                    color: errors > 0 ? Colors.red : null,
+                    color: errors > 0 ? const Color(0xFFB91C1C) : null,
                   ),
                 ],
               ),
@@ -257,7 +326,8 @@ class _SyncHubState extends State<SyncHub> {
               Row(
                 children: [
                   Expanded(
-                    child: shadcn.Button.primary(
+                    child: Button(
+                      style: const ButtonStyle.primary(),
                       onPressed: _isSyncing || pending == 0 ? null : _sync,
                       child: _isSyncing
                           ? const SizedBox(
@@ -268,7 +338,7 @@ class _SyncHubState extends State<SyncHub> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text('Sync Now'),
+                          : const Text('Sincronizar Ahora'),
                     ),
                   ),
                 ],
@@ -296,7 +366,7 @@ class _StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = shadcn.Theme.of(context);
+    final theme = Theme.of(context);
     return Column(
       children: [
         Text(
@@ -304,7 +374,7 @@ class _StatItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: color ?? (isWarning ? Colors.orange : null),
+            color: color ?? (isWarning ? const Color(0xFFf97316) : null),
           ),
         ),
         Text(
@@ -350,10 +420,10 @@ class _CacheManagementTileState extends State<CacheManagementTile> {
         .getPendingIncidentCount();
     if (pendingCount > 0) {
       if (!mounted) return;
-      shadcn.showToast(
+      showToast(
         context: context,
-        builder: (context, overlay) => const shadcn.Card(
-          child: Text('Cannot clear cache while you have pending uploads.'),
+        builder: (context, overlay) => const Card(
+          child: Text('No puedes limpiar la caché con cargas pendientes.'),
         ),
       );
       return;
@@ -364,10 +434,10 @@ class _CacheManagementTileState extends State<CacheManagementTile> {
     await _loadCacheSize();
 
     if (mounted) {
-      shadcn.showToast(
+      showToast(
         context: context,
         builder: (context, overlay) =>
-            const shadcn.Card(child: Text('Cache cleared')),
+            const Card(child: Text('Caché limpiada correctamente')),
       );
     }
   }
@@ -380,38 +450,39 @@ class _CacheManagementTileState extends State<CacheManagementTile> {
 
   @override
   Widget build(BuildContext context) {
-    return shadcn.Card(
-      child: Column(
+    final theme = Theme.of(context);
+    return Card(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Local Cache'),
-                  if (_isLoading)
-                    const SizedBox(
-                      height: 12,
-                      width: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    Text(
-                      _formatSize(_cacheSize),
-                      style: shadcn.Theme.of(context).typography.small.copyWith(
-                        color: shadcn.Theme.of(
-                          context,
-                        ).colorScheme.mutedForeground,
-                      ),
-                    ),
-                ],
+              Text(
+                'Caché local',
+                style: theme.typography.p.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              shadcn.Button.ghost(
-                onPressed: _isLoading || _cacheSize == 0 ? null : _clearCache,
-                child: const Text('Clear'),
-              ),
+              if (_isLoading)
+                const SizedBox(
+                  height: 12,
+                  width: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Text(
+                  _formatSize(_cacheSize),
+                  style: theme.typography.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                  ),
+                ),
             ],
+          ),
+          Button(
+            style: const ButtonStyle.ghost(),
+            onPressed: _isLoading || _cacheSize == 0 ? null : _clearCache,
+            child: const Text('Limpiar'),
           ),
         ],
       ),
@@ -456,25 +527,75 @@ class _OfflineSettingsTileState extends State<OfflineSettingsTile> {
 
   @override
   Widget build(BuildContext context) {
-    return shadcn.Card(
+    final theme = Theme.of(context);
+    return Card(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Auto-download Media'),
-              Text(
-                'Download project photos over WiFi',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Descarga automática de medios',
+                  style: theme.typography.p.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'Descargar fotos del proyecto por WiFi',
+                  style: theme.typography.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           ),
-          shadcn.Switch(
+          const SizedBox(width: 12),
+          Switch(
             value: _autoDownload,
             onChanged: _toggleSetting,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows the app version read dynamically from the platform.
+class _AppVersionText extends StatefulWidget {
+  const _AppVersionText();
+
+  @override
+  State<_AppVersionText> createState() => _AppVersionTextState();
+}
+
+class _AppVersionTextState extends State<_AppVersionText> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      PackageInfo.fromPlatform().then((info) {
+        if (mounted) {
+          setState(() {
+            _version = 'v${info.version} (build ${info.buildNumber})';
+          });
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_version.isEmpty) return const SizedBox.shrink();
+    return Center(
+      child: Text(
+        _version,
+        style: Theme.of(context).typography.small.copyWith(
+          color: Theme.of(context).colorScheme.mutedForeground,
+        ),
       ),
     );
   }

@@ -144,6 +144,12 @@ class IncidentRepositoryImpl implements IncidentRepository {
   }
 
   @override
+  Future<void> deleteIncident(String incidentId) async {
+    await _localDatabase.deleteIncident(incidentId);
+    await _refreshIncidents();
+  }
+
+  @override
   Future<int> getPendingIncidentCount() async {
     final counts = await _localDatabase.getIncidentCounts();
     return counts['pending'] ?? 0;
