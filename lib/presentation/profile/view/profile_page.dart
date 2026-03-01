@@ -529,8 +529,8 @@ class _SyncHubState extends State<SyncHub> {
                       style: const ButtonStyle.primary(),
                       onPressed:
                           _isSyncing ||
-                              (pending == 0 && !_isOnline) ||
-                              (!_isSyncing && pending == 0)
+                              ((pending == 0 && errors == 0) && !_isOnline) ||
+                              (!_isSyncing && pending == 0 && errors == 0)
                           ? null
                           : _sync,
                       child: _isSyncing

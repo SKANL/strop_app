@@ -18,7 +18,7 @@ class LocalDatabase {
 
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -71,6 +71,12 @@ CREATE TABLE IF NOT EXISTS projects (
         'ALTER TABLE incidents ADD COLUMN assigned_to TEXT',
       );
     }
+    if (oldVersion < 7) {
+      // Add folio_number to store the server-assigned folio after sync
+      await db.execute(
+        'ALTER TABLE incidents ADD COLUMN folio_number INTEGER',
+      );
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -98,6 +104,7 @@ CREATE TABLE incidents (
   created_by $textTypeNullable,
   created_at $textType,
   sync_status $integerType,
+  folio_number INTEGER,
   public_token $textTypeNullable,
   rejection_reason $textTypeNullable,
   assigned_to $textTypeNullable
@@ -171,8 +178,13 @@ CREATE TABLE projects (
 
   Future<List<Map<String, dynamic>>> getPendingIncidents() async {
     final db = await instance.database;
-    // Assuming sync_status 0 = pending, 1 = synced
+    // sync_status 0 = pending, 1 = synced, 2 = error
     return db.query('incidents', where: 'sync_status = ?', whereArgs: [0]);
+  }
+
+  Future<List<Map<String, dynamic>>> getErrorIncidents() async {
+    final db = await instance.database;
+    return db.query('incidents', where: 'sync_status = ?', whereArgs: [2]);
   }
 
   Future<List<Map<String, dynamic>>> getIncidentsByStatus(String status) async {

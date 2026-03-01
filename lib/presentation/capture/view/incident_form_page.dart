@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart' show DropdownButton, DropdownMenuItem;
 import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +49,7 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
   bool _isSaving = false;
   Project? _detectedProject;
   bool _isLoadingLocation = true;
+  List<Project> _availableProjects = [];
   List<String> _recentLocations = [];
 
   // Focus chain for keyboard navigation
@@ -83,6 +85,20 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
     IncidentFormPage.isFormActive.value = true;
     unawaited(_detectLocation());
     unawaited(_loadRecentLocations());
+    unawaited(_loadProjects());
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await sl<ProjectRepository>().getProjects();
+      if (mounted) {
+        setState(() {
+          _availableProjects = projects;
+        });
+      }
+    } on Exception catch (e) {
+      debugPrint('Error loading projects: $e');
+    }
   }
 
   Future<void> _loadRecentLocations() async {
@@ -162,6 +178,16 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
         context: context,
         builder: (context, overlay) => const Card(
           child: Text('El título es obligatorio.'),
+        ),
+      );
+      return;
+    }
+
+    if (_detectedProject == null) {
+      showToast(
+        context: context,
+        builder: (context, overlay) => const Card(
+          child: Text('Selecciona un proyecto antes de guardar.'),
         ),
       );
       return;
@@ -303,10 +329,30 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
                       ),
                       if (_isLoadingLocation)
                         const Text('Detectando proyecto cercano...')
-                      else
+                      else if (_detectedProject != null)
                         Text(
-                          _detectedProject?.name ?? 'Sin proyecto detectado',
+                          _detectedProject!.name,
                           style: const TextStyle(fontWeight: FontWeight.bold),
+                        )
+                      else
+                        DropdownButton<Project>(
+                          hint: const Text('Seleccionar proyecto'),
+                          value: null,
+                          isDense: true,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          items: _availableProjects
+                              .map((p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text(
+                                      p.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (p) {
+                            if (p != null) setState(() => _detectedProject = p);
+                          },
                         ),
                     ],
                   ),

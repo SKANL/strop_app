@@ -27,14 +27,16 @@ class SyncService {
   Future<void> syncPendingData() async {
     if (!await _connectivityService.isConnected) return;
 
+    // Fetch both pending (0) and error (2) incidents so errors are retried.
     final pendingIncidents = await _localDatabase.getPendingIncidents();
+    final errorIncidents = await _localDatabase.getErrorIncidents();
+    final toSync = [...pendingIncidents, ...errorIncidents];
 
-    for (final incident in pendingIncidents) {
+    for (final incident in toSync) {
       try {
         await _syncIncident(incident);
       } on Exception catch (e) {
         debugPrint('Error syncing incident ${incident['id']}: $e');
-        // Optionally update status to 'error' (2)
         await _localDatabase.updateIncidentSyncStatus(
           incident['id'] as String,
           2,
@@ -45,6 +47,17 @@ class SyncService {
 
   Future<void> _syncIncident(Map<String, dynamic> incident) async {
     final incidentId = incident['id'] as String;
+
+    // Skip incidents missing required fields — they cannot be synced.
+    // These can only happen for incidents created before the project-required
+    // validation was added.
+    if (incident['project_id'] == null) {
+      debugPrint('Skipping incident $incidentId: project_id is null');
+      // Mark as permanent error so it stops being retried automatically.
+      // User must delete it from the app.
+      await _localDatabase.updateIncidentSyncStatus(incidentId, 2);
+      return;
+    }
 
     // 1. Upload Audio if exists
     final audioPath = incident['audio_path'] as String?;
@@ -65,59 +78,45 @@ class SyncService {
       audioUrl = path;
     }
 
-    // 2. Insert/Upsert Incident to Supabase
-    // Map local fields to Supabase Table fields
-    // Local: id, title, description, priority, status, project_id,
-    // category, location_tag, gps_lat, gps_lng
-    // Online: id, project_id, ... (from 01-tables.sql)
+    // 2. Create incident via RPC — handles folio_number, public_token, and
+    //    geofence check. Pass p_id so the remote UUID matches the local one.
+    final priority =
+        (incident['priority'] as String? ?? 'normal').toUpperCase();
 
-    // Handle GPS Point (Skipping complex GeoJSON for now)
-
-    // Map status: local (lowercase) → remote (UPPERCASE)
-    String remoteStatus;
-    switch ((incident['status'] as String? ?? 'open').toLowerCase()) {
-      case 'inreview':
-        remoteStatus = 'IN_REVIEW';
-      case 'closed':
-        remoteStatus = 'CLOSED';
-      case 'rejected':
-        remoteStatus = 'REJECTED';
-      default:
-        remoteStatus = 'OPEN';
-    }
-
-    // Build GPS WKT string if coordinates are available
     final gpsLat = incident['gps_lat'] as double?;
     final gpsLng = incident['gps_lng'] as double?;
     final gpsWkt = (gpsLat != null && gpsLng != null)
         ? 'POINT($gpsLng $gpsLat)'
         : null;
 
-    final currentUserId = _supabaseClient.auth.currentUser?.id;
-
-    final incidentData = <String, dynamic>{
-      'id': incidentId,
-      'project_id': incident['project_id'],
-      'title': incident['title'],
-      'description': incident['description'],
-      'priority': (incident['priority'] as String? ?? 'normal').toUpperCase(),
-      'status': remoteStatus,
-      'category': incident['category'],
-      'location_tag': incident['location_tag'],
-      'audio_url': audioUrl,
-      'created_at': incident['created_at'],
-      'created_by': currentUserId,
+    final rpcParams = <String, dynamic>{
+      'p_id': incidentId,
+      'p_project_id': incident['project_id'],
+      'p_description': incident['description'] ?? '',
+      'p_priority': priority,
+      if (incident['location_tag'] != null)
+        'p_location_tag': incident['location_tag'],
+      if (audioUrl != null) 'p_audio_url': audioUrl,
+      if (gpsWkt != null) 'p_gps_coords': gpsWkt,
     };
 
-    // Only add GPS if available (avoids overwriting with null)
-    if (gpsWkt != null) {
-      incidentData['gps_coords'] = gpsWkt;
+    final rpcResponse =
+        await _supabaseClient.rpc('create_incident', params: rpcParams);
+
+    // Update local record with server-assigned folio_number and public_token
+    if (rpcResponse is Map) {
+      final db = _localDatabase;
+      final folio = rpcResponse['folio_number'];
+      final token = rpcResponse['public_token'];
+      if (folio != null || token != null) {
+        final updates = <String, dynamic>{
+          'id': incidentId,
+          if (folio != null) 'folio_number': folio,
+          if (token != null) 'public_token': token,
+        };
+        await db.updateIncident(updates);
+      }
     }
-
-    // Remove null values to avoid overwriting DB with nulls
-    incidentData.removeWhere((_, v) => v == null);
-
-    await _supabaseClient.from('incidents').upsert(incidentData);
 
     // 3. Sync Photos
     final photos = await _localDatabase.getPhotosForIncident(incidentId);
