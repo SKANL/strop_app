@@ -73,24 +73,49 @@ class SyncService {
 
     // Handle GPS Point (Skipping complex GeoJSON for now)
 
-    final incidentData = {
+    // Map status: local (lowercase) → remote (UPPERCASE)
+    String remoteStatus;
+    switch ((incident['status'] as String? ?? 'open').toLowerCase()) {
+      case 'inreview':
+        remoteStatus = 'IN_REVIEW';
+      case 'closed':
+        remoteStatus = 'CLOSED';
+      case 'rejected':
+        remoteStatus = 'REJECTED';
+      default:
+        remoteStatus = 'OPEN';
+    }
+
+    // Build GPS WKT string if coordinates are available
+    final gpsLat = incident['gps_lat'] as double?;
+    final gpsLng = incident['gps_lng'] as double?;
+    final gpsWkt = (gpsLat != null && gpsLng != null)
+        ? 'POINT($gpsLng $gpsLat)'
+        : null;
+
+    final currentUserId = _supabaseClient.auth.currentUser?.id;
+
+    final incidentData = <String, dynamic>{
       'id': incidentId,
-      'project_id':
-          incident['project_id'], // Must be valid UUID of existing project
+      'project_id': incident['project_id'],
       'title': incident['title'],
       'description': incident['description'],
-      'priority': incident['priority'],
-      'status': incident['status'],
-      'category': incident['category'], // Trade
-      'location_tag': incident['location_tag'], // Specific location
+      'priority': (incident['priority'] as String? ?? 'normal').toUpperCase(),
+      'status': remoteStatus,
+      'category': incident['category'],
+      'location_tag': incident['location_tag'],
       'audio_url': audioUrl,
       'created_at': incident['created_at'],
-      'created_by': _supabaseClient.auth.currentUser?.id,
-      // 'gps_coords': ... // Skipping complex GeoJSON for now
+      'created_by': currentUserId,
     };
 
-    // Remove nulls to avoid overwriting with null if upserting?
-    // Or keep them.
+    // Only add GPS if available (avoids overwriting with null)
+    if (gpsWkt != null) {
+      incidentData['gps_coords'] = gpsWkt;
+    }
+
+    // Remove null values to avoid overwriting DB with nulls
+    incidentData.removeWhere((_, v) => v == null);
 
     await _supabaseClient.from('incidents').upsert(incidentData);
 
@@ -123,10 +148,8 @@ class SyncService {
           // We might need jsonDecode(photo['annotations_json'])
         });
 
-        // Update local photo sync status
-        // We need a method in LocalDatabase to update photo sync status
-        // For now, assume we implement it or add sql execution
-        // await _localDatabase.updatePhotoSyncStatus(...)
+        // ← FIX: mark photo as synced so it's not re-uploaded on next sync
+        await _localDatabase.updatePhotoSyncStatus(photo['id'] as String, 1);
       }
     }
 

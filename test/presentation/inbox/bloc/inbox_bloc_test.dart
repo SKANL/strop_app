@@ -70,7 +70,7 @@ void main() {
     seed: () => InboxLoaded(
       incidents: incidents,
       // Initially all (incorrect state but strict check below handles logic)
-      currentTab: IncidentStatus.pending,
+      currentTab: IncidentStatus.open,
     ),
     act: (bloc) {
       // Need to populate _allIncidents first via Subscribe or hack?

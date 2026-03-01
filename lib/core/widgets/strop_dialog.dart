@@ -1,5 +1,11 @@
-import 'package:flutter/material.dart' show showDialog;
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide showDialog;
+import 'package:flutter/material.dart'
+    show
+        InputDecoration,
+        StatefulBuilder,
+        TextField,
+        TextEditingController,
+        showDialog;
+import 'package:shadcn_flutter/shadcn_flutter.dart' hide showDialog, TextField;
 
 /// Unified confirmation dialog helper for Strop.
 /// Replaces all inline `showDialog(AlertDialog(...))` calls throughout the app.
@@ -46,5 +52,53 @@ abstract final class StropDialog {
         ],
       ),
     );
+  }
+
+  /// Shows a dialog with a text input field.
+  /// Returns the entered text if the user confirmed, or `null` if cancelled.
+  static Future<String?> inputConfirm({
+    required BuildContext context,
+    required String title,
+    String? hintText,
+    String confirmLabel = 'Confirmar',
+    String cancelLabel = 'Cancelar',
+    bool isDestructive = false,
+  }) async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (_, setState) => AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: hintText),
+            maxLines: 3,
+            autofocus: true,
+          ),
+          actions: [
+            Button(
+              style: const ButtonStyle.ghost(),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(cancelLabel),
+            ),
+            Button(
+              style: isDestructive
+                  ? const ButtonStyle.destructive()
+                  : const ButtonStyle.primary(),
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              child: Text(confirmLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+    final result = confirmed == true ? controller.text.trim() : null;
+    controller.dispose();
+    return result;
   }
 }

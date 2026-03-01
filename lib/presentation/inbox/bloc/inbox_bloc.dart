@@ -44,7 +44,7 @@ class InboxBloc extends Bloc<InboxEvent, InboxState> {
           // Default initial state
           return _filterIncidents(
             incidents,
-            IncidentStatus.pending,
+            IncidentStatus.open,
             '',
           );
         }

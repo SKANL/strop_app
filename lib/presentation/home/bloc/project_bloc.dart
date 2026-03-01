@@ -36,11 +36,12 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
       final distances = <String, double>{};
       if (position != null) {
         for (final project in projects) {
+          if (project.latitude == null || project.longitude == null) continue;
           final distance = _locationService.calculateDistance(
             position.latitude,
             position.longitude,
-            project.latitude,
-            project.longitude,
+            project.latitude!,
+            project.longitude!,
           );
           distances[project.id] = distance;
         }
@@ -86,11 +87,12 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
       final projects = List<Project>.from(currentState.projects);
 
       for (final project in projects) {
+        if (project.latitude == null || project.longitude == null) continue;
         final distance = _locationService.calculateDistance(
           position.latitude,
           position.longitude,
-          project.latitude,
-          project.longitude,
+          project.latitude!,
+          project.longitude!,
         );
         distances[project.id] = distance;
       }

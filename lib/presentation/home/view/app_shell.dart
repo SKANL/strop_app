@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:strop_app/app/di/service_locator.dart';
 import 'package:strop_app/core/app_notifiers.dart';
 import 'package:strop_app/core/widgets/app_colors.dart';
 import 'package:strop_app/core/widgets/strop_dialog.dart';
+import 'package:strop_app/data/repositories/user_profile_repository.dart';
 import 'package:strop_app/presentation/capture/view/annotation_page.dart';
 import 'package:strop_app/presentation/capture/view/incident_form_page.dart';
 import 'package:strop_app/presentation/capture/view/permissions_gate_page.dart';
@@ -25,6 +27,22 @@ class AppShell extends StatelessWidget {
     }
 
     if (index == 2) {
+      // Capability gate: only users with incident.create can report incidents
+      final profile =
+          await sl<UserProfileRepository>().getCurrentUserProfile();
+      if (profile != null && !profile.can('incident.create')) {
+        if (!context.mounted) return;
+        showToast(
+          context: context,
+          builder: (ctx, overlay) => const Card(
+            child: Text(
+              'No tienes permiso para crear incidencias.',
+            ),
+          ),
+        );
+        return;
+      }
+
       // Camera: check permissions first, then open capture overlay.
       final ctx =
           navigationShell.shellRouteContext.navigatorKey.currentContext;

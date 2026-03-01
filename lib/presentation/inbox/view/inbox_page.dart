@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' show showModalBottomSheet;
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -39,10 +40,11 @@ class _InboxViewState extends State<InboxView> {
   void _onTabChanged(int index) {
     setState(() => _tabIndex = index);
     final status = switch (index) {
-      0 => IncidentStatus.pending,
+      0 => IncidentStatus.open,
       1 => IncidentStatus.inReview,
-      2 => IncidentStatus.done,
-      _ => IncidentStatus.pending,
+      2 => IncidentStatus.closed,
+      3 => IncidentStatus.rejected,
+      _ => IncidentStatus.open,
     };
     context.read<InboxBloc>().add(ChangeTab(status));
   }
@@ -113,6 +115,7 @@ class _InboxViewState extends State<InboxView> {
               TabItem(child: const Text('Pendientes', style: TextStyle(fontSize: 11))),
               TabItem(child: const Text('En Revisión', style: TextStyle(fontSize: 11))),
               TabItem(child: const Text('Cerradas', style: TextStyle(fontSize: 11))),
+              TabItem(child: const Text('Rechazadas', style: TextStyle(fontSize: 11))),
             ],
           ),
         ),
@@ -194,9 +197,10 @@ class _EmptyState extends StatelessWidget {
   final IncidentStatus tab;
 
   String _tabLabel() => switch (tab) {
-        IncidentStatus.pending => 'pendientes',
+        IncidentStatus.open => 'pendientes',
         IncidentStatus.inReview => 'en revisión',
-        IncidentStatus.done => 'cerradas',
+        IncidentStatus.closed => 'cerradas',
+        IncidentStatus.rejected => 'rechazadas',
       };
 
   @override
@@ -307,9 +311,10 @@ class _IncidentItemState extends State<_IncidentItem> {
   }
 
   String _statusLabel(IncidentStatus status) => switch (status) {
-        IncidentStatus.pending => 'Pendientes',
+        IncidentStatus.open => 'Pendientes',
         IncidentStatus.inReview => 'En Revisión',
-        IncidentStatus.done => 'Cerradas',
+        IncidentStatus.closed => 'Cerradas',
+        IncidentStatus.rejected => 'Rechazadas',
       };
 
   @override
@@ -319,19 +324,20 @@ class _IncidentItemState extends State<_IncidentItem> {
       startActionPane: ActionPane(
         motion: const DrawerMotion(),
         children: [
-          if (widget.incident.status != IncidentStatus.done)
+          if (widget.incident.status != IncidentStatus.closed &&
+              widget.incident.status != IncidentStatus.rejected)
             SlidableAction(
               onPressed: (_) {
                 final nextStatus =
-                    widget.incident.status == IncidentStatus.pending
+                    widget.incident.status == IncidentStatus.open
                         ? IncidentStatus.inReview
-                        : IncidentStatus.done;
+                        : IncidentStatus.closed;
                 _updateStatus(context, nextStatus);
               },
               backgroundColor: AppColors.statusDone,
               foregroundColor: Colors.white,
               icon: Icons.check_rounded,
-              label: widget.incident.status == IncidentStatus.pending
+              label: widget.incident.status == IncidentStatus.open
                   ? 'Revisar'
                   : 'Cerrar',
               borderRadius: const BorderRadius.horizontal(
@@ -358,9 +364,8 @@ class _IncidentItemState extends State<_IncidentItem> {
       child: Card(
         padding: const EdgeInsets.all(12),
         child: GestureDetector(
-          onTap: () {
-            _IncidentDetailSheet.show(context, widget.incident);
-          },
+          onTap: () => context.push('/expediente', extra: widget.incident),
+          onLongPress: () => _IncidentDetailSheet.show(context, widget.incident),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -398,7 +403,38 @@ class _IncidentItemState extends State<_IncidentItem> {
                             fontWeight: FontWeight.w600,
                           ),
                     ),
-                    if (widget.incident.description != null) ...[
+                    // Rejection reason banner for REJECTED incidents
+                    if (widget.incident.status == IncidentStatus.rejected &&
+                        widget.incident.rejectionReason != null) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.cancel_outlined, size: 12, color: AppColors.error),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.incident.rejectionReason!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (widget.incident.status != IncidentStatus.rejected &&
+                        widget.incident.description != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         widget.incident.description!,
@@ -663,18 +699,20 @@ class _IncidentDetailSheet extends StatelessWidget {
   }
 
   String _statusLabel(IncidentStatus status) => switch (status) {
-        IncidentStatus.pending => 'Pendientes',
+        IncidentStatus.open => 'Pendientes',
         IncidentStatus.inReview => 'En Revisión',
-        IncidentStatus.done => 'Cerradas',
+        IncidentStatus.closed => 'Cerradas',
+        IncidentStatus.rejected => 'Rechazadas',
       };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final nextStatus = switch (incident.status) {
-      IncidentStatus.pending => IncidentStatus.inReview,
-      IncidentStatus.inReview => IncidentStatus.done,
-      IncidentStatus.done => null,
+      IncidentStatus.open => IncidentStatus.inReview,
+      IncidentStatus.inReview => IncidentStatus.closed,
+      IncidentStatus.closed => null,
+      IncidentStatus.rejected => null,
     };
 
     return Container(
@@ -819,7 +857,7 @@ class _IncidentDetailSheet extends StatelessWidget {
                   style: const ButtonStyle.primary(),
                   onPressed: () => _updateStatus(context, nextStatus),
                   child: Text(
-                    nextStatus == IncidentStatus.inReview
+              nextStatus == IncidentStatus.inReview
                         ? 'Pasar a En Revisión'
                         : 'Cerrar Incidencia',
                   ),
@@ -857,17 +895,20 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, label) = switch (status) {
-      IncidentStatus.pending =>
+      IncidentStatus.open =>
         (AppColors.statusPending.withValues(alpha: 0.15), 'Pendiente'),
       IncidentStatus.inReview =>
         (AppColors.statusInReview.withValues(alpha: 0.15), 'En Revisión'),
-      IncidentStatus.done =>
+      IncidentStatus.closed =>
         (AppColors.statusDone.withValues(alpha: 0.15), 'Cerrada'),
+      IncidentStatus.rejected =>
+        (AppColors.error.withValues(alpha: 0.15), 'Rechazada'),
     };
     final textColor = switch (status) {
-      IncidentStatus.pending => AppColors.statusPending,
+      IncidentStatus.open => AppColors.statusPending,
       IncidentStatus.inReview => AppColors.statusInReview,
-      IncidentStatus.done => AppColors.statusDone,
+      IncidentStatus.closed => AppColors.statusDone,
+      IncidentStatus.rejected => AppColors.error,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

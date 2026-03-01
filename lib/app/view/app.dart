@@ -6,6 +6,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
 import 'package:strop_app/app/di/service_locator.dart';
 import 'package:strop_app/app/theme.dart';
 import 'package:strop_app/core/widgets/connectivity_listener.dart';
+import 'package:strop_app/domain/entities/incident.dart';
 import 'package:strop_app/domain/entities/project.dart';
 import 'package:strop_app/domain/repositories/auth_repository.dart';
 import 'package:strop_app/l10n/l10n.dart';
@@ -18,6 +19,7 @@ import 'package:strop_app/presentation/home/view/app_shell.dart';
 import 'package:strop_app/presentation/home/view/home_page.dart';
 import 'package:strop_app/presentation/home/view/project_dashboard_page.dart';
 import 'package:strop_app/presentation/inbox/view/inbox_page.dart';
+import 'package:strop_app/presentation/expediente/view/expediente_page.dart';
 import 'package:strop_app/presentation/profile/view/profile_page.dart';
 
 class App extends m.StatelessWidget {
@@ -84,6 +86,13 @@ class AppView extends m.StatelessWidget {
               builder: (context, state) {
                 final project = state.extra! as Project;
                 return ProjectDashboardPage(project: project);
+              },
+            ),
+            GoRoute(
+              path: '/expediente',
+              builder: (context, state) {
+                final incident = state.extra! as Incident;
+                return ExpedientePage(incident: incident);
               },
             ),
             StatefulShellRoute.indexedStack(

@@ -18,7 +18,7 @@ class LocalDatabase {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -38,6 +38,38 @@ class LocalDatabase {
       await db.execute('ALTER TABLE incidents ADD COLUMN gps_lat REAL');
       await db.execute('ALTER TABLE incidents ADD COLUMN gps_lng REAL');
       await db.execute('ALTER TABLE incidents ADD COLUMN created_by TEXT');
+    }
+    if (oldVersion < 4) {
+      // Offline project metadata cache
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  phase TEXT,
+  cover_photo_url TEXT,
+  gps_lat REAL,
+  gps_lng REAL,
+  contingency_budget REAL,
+  geofence_radius_meters INTEGER,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  cached_at TEXT NOT NULL
+)
+''');
+    }
+    if (oldVersion < 5) {
+      // Add public_token and rejection_reason to support Expediente features
+      await db.execute(
+        'ALTER TABLE incidents ADD COLUMN public_token TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE incidents ADD COLUMN rejection_reason TEXT',
+      );
+    }
+    if (oldVersion < 6) {
+      // Add assigned_to (display name) so fetched incidents show who is responsible
+      await db.execute(
+        'ALTER TABLE incidents ADD COLUMN assigned_to TEXT',
+      );
     }
   }
 
@@ -65,7 +97,10 @@ CREATE TABLE incidents (
   gps_lng $realType,
   created_by $textTypeNullable,
   created_at $textType,
-  sync_status $integerType
+  sync_status $integerType,
+  public_token $textTypeNullable,
+  rejection_reason $textTypeNullable,
+  assigned_to $textTypeNullable
   )
 ''');
 
@@ -93,6 +128,22 @@ CREATE TABLE sync_queue (
   retry_count $integerType,
   last_error $textTypeNullable,
   created_at $textType
+)
+''');
+
+    // Project cache table (offline metadata)
+    await db.execute('''
+CREATE TABLE projects (
+  id $idType,
+  name $textType,
+  phase $textTypeNullable,
+  cover_photo_url $textTypeNullable,
+  gps_lat $realType,
+  gps_lng $realType,
+  contingency_budget $realType,
+  geofence_radius_meters INTEGER,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  cached_at $textType
 )
 ''');
   }
@@ -160,6 +211,17 @@ CREATE TABLE sync_queue (
     );
   }
 
+  /// Updates the sync_status of a single photo row.
+  Future<void> updatePhotoSyncStatus(String photoId, int status) async {
+    final db = await instance.database;
+    await db.update(
+      'photos',
+      {'sync_status': status},
+      where: 'id = ?',
+      whereArgs: [photoId],
+    );
+  }
+
   Future<void> insertPhoto(Map<String, dynamic> photo) async {
     final db = await instance.database;
     await db.insert(
@@ -180,6 +242,24 @@ CREATE TABLE sync_queue (
     );
   }
 
+  /// Upsert an incident - insert or replace if ID already exists
+  Future<void> upsertIncident(Map<String, dynamic> incident) async {
+    final db = await database;
+    await db.insert(
+      'incidents',
+      incident,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Update existing incident fields
+  Future<void> updateIncident(Map<String, dynamic> data) async {
+    final db = await database;
+    final id = data['id'] as String;
+    final updateMap = Map<String, dynamic>.from(data)..remove('id');
+    await db.update('incidents', updateMap, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> deleteIncident(String incidentId) async {
     final db = await instance.database;
     await db.transaction((txn) async {
@@ -194,5 +274,40 @@ CREATE TABLE sync_queue (
         whereArgs: [incidentId],
       );
     });
+  }
+
+  // ── Project Cache ─────────────────────────────────────────────────────────
+
+  /// Replaces all cached projects with the latest fetch from Supabase.
+  Future<void> cacheProjects(List<Map<String, dynamic>> projects) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.delete('projects');
+      for (final p in projects) {
+        await txn.insert(
+          'projects',
+          {
+            'id': p['id'],
+            'name': p['name'],
+            'phase': p['phase'],
+            'cover_photo_url': p['cover_photo_url'],
+            'gps_lat': p['gps_lat'],
+            'gps_lng': p['gps_lng'],
+            'contingency_budget': p['contingency_budget'],
+            'geofence_radius_meters': p['geofence_radius_meters'],
+            'is_active': (p['is_active'] as bool? ?? true) ? 1 : 0,
+            'cached_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  /// Returns all projects from the local cache, empty list if none stored.
+  Future<List<Map<String, dynamic>>> getCachedProjects() async {
+    final db = await database;
+    return db.query('projects', where: 'is_active = 1');
   }
 }

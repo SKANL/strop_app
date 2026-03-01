@@ -9,4 +9,7 @@ abstract class AuthRepository {
   });
 
   Future<void> logOut();
+
+  /// Sends a password-reset email using Supabase Auth.
+  Future<void> sendPasswordResetEmail(String email);
 }

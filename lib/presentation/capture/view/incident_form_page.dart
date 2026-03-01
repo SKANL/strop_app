@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:strop_app/app/di/service_locator.dart';
 import 'package:strop_app/core/app_notifiers.dart';
 import 'package:strop_app/core/services/image_compression_service.dart';
+import 'package:strop_app/core/services/geoapify_service.dart';
 import 'package:strop_app/core/services/location_service.dart';
 import 'package:strop_app/core/widgets/app_colors.dart';
 import 'package:strop_app/core/widgets/step_progress_bar.dart';
@@ -113,12 +114,25 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
       final position = await sl<LocationService>().getCurrentPosition();
       final lat = position?.latitude ?? 0.0;
       final lon = position?.longitude ?? 0.0;
-      final project = await sl<ProjectRepository>().getNearestProject(lat, lon);
+
+      // Fetch project + reverse geocode in parallel
+      final results = await Future.wait([
+        sl<ProjectRepository>().getNearestProject(lat, lon),
+        sl<GeoapifyService>().reverseGeocode(lat, lon),
+      ]);
+
+      final project = results[0] as Project?;
+      final address = results[1] as String?;
+
       if (mounted) {
         setState(() {
           _detectedProject = project;
           _isLoadingLocation = false;
         });
+        // Pre-fill specific location if user hasn't typed anything yet
+        if (address != null && _specificLocationController.text.isEmpty) {
+          _specificLocationController.text = address;
+        }
       }
     } on Exception catch (e) {
       debugPrint('Error detecting location: $e');
@@ -187,6 +201,7 @@ class _IncidentFormPageState extends State<IncidentFormPage> {
         title: _titleController.text,
         description: _descriptionController.text,
         location: _detectedProject?.name ?? 'Unknown Location',
+        projectId: _detectedProject?.id, // ← FIX: populate real UUID
         specificLocation: _specificLocationController.text.isEmpty
             ? null
             : _specificLocationController.text,

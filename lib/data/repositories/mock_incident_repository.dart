@@ -33,7 +33,7 @@ class MockIncidentRepository implements IncidentRepository {
       title: 'Debris in hallway',
       location: 'Corridor 3F',
       createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      status: IncidentStatus.done,
+      status: IncidentStatus.closed,
       syncStatus: SyncStatus.synced,
       photos: const ['https://picsum.photos/202'],
     ),

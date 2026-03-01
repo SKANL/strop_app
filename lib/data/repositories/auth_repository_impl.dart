@@ -52,4 +52,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logOut() async {
     await _supabaseClient.auth.signOut();
   }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _supabaseClient.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'https://strop.app/reset-password',
+    );
+  }
 }

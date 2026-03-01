@@ -13,7 +13,7 @@ class IncidentStatusBadge extends StatelessWidget {
     final theme = Theme.of(context);
 
     final (label, bg, fg) = switch (status) {
-      IncidentStatus.pending => (
+      IncidentStatus.open => (
           'Pendiente',
           theme.colorScheme.muted,
           theme.colorScheme.mutedForeground
@@ -23,10 +23,15 @@ class IncidentStatusBadge extends StatelessWidget {
           AppColors.statusInReview.withValues(alpha: 0.12),
           AppColors.statusInReview,
         ),
-      IncidentStatus.done => (
+      IncidentStatus.closed => (
           'Completado',
           AppColors.statusDone.withValues(alpha: 0.12),
           AppColors.statusDone,
+        ),
+      IncidentStatus.rejected => (
+          'Rechazado',
+          AppColors.error.withValues(alpha: 0.12),
+          AppColors.error,
         ),
     };
 

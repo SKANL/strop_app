@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' show BackButton, Colors, Icons;
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' hide Colors;
 import 'package:strop_app/app/di/service_locator.dart';
 import 'package:strop_app/domain/entities/incident.dart';
@@ -42,7 +43,7 @@ class ProjectDashboardPage extends StatelessWidget {
           }
 
           final incidents = snapshot.data!
-              .where((i) => i.location == project.name)
+              .where((i) => i.projectId == project.id || i.location == project.name)
               .toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -244,7 +245,7 @@ class _StatsSection extends StatelessWidget {
                 child: _MiniStat(
                   label: 'Pendiente',
                   value:
-                      (byStatus[IncidentStatus.pending] ?? 0).toString(),
+                      (byStatus[IncidentStatus.open] ?? 0).toString(),
                   color: theme.colorScheme.mutedForeground,
                 ),
               ),
@@ -261,7 +262,7 @@ class _StatsSection extends StatelessWidget {
               Expanded(
                 child: _MiniStat(
                   label: 'Completado',
-                  value: (byStatus[IncidentStatus.done] ?? 0).toString(),
+                  value: (byStatus[IncidentStatus.closed] ?? 0).toString(),
                   color: Colors.green,
                 ),
               ),
@@ -379,7 +380,9 @@ class _IncidentItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    return GestureDetector(
+      onTap: () => context.push('/expediente', extra: incident),
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Card(
         child: Padding(
@@ -437,6 +440,7 @@ class _IncidentItem extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -463,7 +467,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, bg, fg) = switch (status) {
-      IncidentStatus.pending => (
+      IncidentStatus.open => (
           'Pendiente',
           Theme.of(context).colorScheme.muted,
           Theme.of(context).colorScheme.mutedForeground
@@ -473,10 +477,15 @@ class _StatusBadge extends StatelessWidget {
           Colors.blue.withValues(alpha: 0.12),
           Colors.blue
         ),
-      IncidentStatus.done => (
+      IncidentStatus.closed => (
           'Completado',
           Colors.green.withValues(alpha: 0.12),
           Colors.green
+        ),
+      IncidentStatus.rejected => (
+          'Rechazado',
+          Colors.red.withValues(alpha: 0.12),
+          Colors.red
         ),
     };
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' as m show TextInputAction, TextInputType;
+import 'package:flutter/material.dart' as m;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -41,6 +41,89 @@ class _LoginPageState extends State<LoginPage> {
       return 'Sin conexión. Verifica tu red e intenta de nuevo.';
     }
     return 'Error al iniciar sesión. Intenta de nuevo.';
+  }
+
+  Future<void> _showForgotPasswordDialog(BuildContext context) async {
+    final emailCtrl = TextEditingController(text: _emailController.text);
+    var isSending = false;
+    String? resultMsg;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return m.StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return m.AlertDialog(
+              title: const Text('Recuperar contraseña'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  m.TextField(
+                    controller: emailCtrl,
+                    decoration: const m.InputDecoration(
+                      labelText: 'Correo electrónico',
+                      hintText: 'tu@empresa.com',
+                    ),
+                    keyboardType: m.TextInputType.emailAddress,
+                    autofocus: true,
+                    textInputAction: m.TextInputAction.done,
+                    onSubmitted: (_) => _doSendReset(emailCtrl, ctx, setDialogState, () => isSending, (v) { setDialogState(() { isSending = v; }); }, (msg) { setDialogState(() { resultMsg = msg; }); }),
+                  ),
+                  if (resultMsg != null) ...[
+                    const SizedBox(height: 8),
+                    Text(resultMsg!, style: TextStyle(fontSize: 12, color: resultMsg!.startsWith('✅') ? null : null)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: isSending
+                      ? null
+                      : () => _doSendReset(emailCtrl, ctx, setDialogState, () => isSending, (v) { setDialogState(() { isSending = v; }); }, (msg) { setDialogState(() { resultMsg = msg; }); }),
+                  child: isSending
+                      ? const SizedBox(width: 16, height: 16, child: m.CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Enviar enlace'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _doSendReset(
+    TextEditingController emailCtrl,
+    BuildContext ctx,
+    m.StateSetter setDialogState,
+    bool Function() getIsSending,
+    void Function(bool) setIsSending,
+    void Function(String) setMsg,
+  ) async {
+    final email = emailCtrl.text.trim();
+    if (email.isEmpty) {
+      setMsg('Ingresa tu correo primero.');
+      return;
+    }
+    setIsSending(true);
+    try {
+      await sl<AuthRepository>().sendPasswordResetEmail(email);
+      setMsg('✅ Enlace enviado a $email. Revisa tu bandeja de entrada.');
+    } on Exception catch (e) {
+      setMsg('Error: ${e.toString()}');
+    } finally {
+      setIsSending(false);
+    }
   }
 
   @override
@@ -108,8 +191,7 @@ class _LoginPageState extends State<LoginPage> {
                                   keyboardType: m.TextInputType.emailAddress,
                                   autofillHints: const [AutofillHints.email],
                                   textInputAction: m.TextInputAction.next,
-                                  onSubmitted: (_) =>
-                                      _passwordFocusNode.requestFocus(),
+                                  onSubmitted: (_) => _passwordFocusNode.requestFocus(),
                                 ),
                               ),
                               const Gap(16),
@@ -172,14 +254,7 @@ class _LoginPageState extends State<LoginPage> {
                                 alignment: Alignment.centerRight,
                                 child: Button(
                                   style: const ButtonStyle.ghost(),
-                                  onPressed: () => showToast(
-                                    context: context,
-                                    builder: (ctx, overlay) => const Card(
-                                      child: Text(
-                                        'Recuperación de contraseña próximamente.',
-                                      ),
-                                    ),
-                                  ),
+                                  onPressed: () => _showForgotPasswordDialog(context),
                                   child: const Text(
                                     '¿Olvidaste tu contraseña?',
                                     style: TextStyle(fontSize: 13),
@@ -244,7 +319,7 @@ class _LoginPageState extends State<LoginPage> {
                                     ? const SizedBox(
                                         width: 18,
                                         height: 18,
-                                        child: CircularProgressIndicator(
+                                        child: m.CircularProgressIndicator(
                                           strokeWidth: 2,
                                         ),
                                       )
