@@ -72,10 +72,10 @@ class SyncService {
             File(audioPath),
             fileOptions: const FileOptions(upsert: true),
           );
-      // Construct public URL or just path depending on access policy
-      // For private buckets, we usually use the path or signed URL access.
-      // Saving the path relative to bucket is standard.
-      audioUrl = path;
+      // Build full public URL so the web client can display audio directly
+      audioUrl = _supabaseClient.storage
+          .from('incident-evidence')
+          .getPublicUrl(path);
     }
 
     // 2. Create incident via RPC — handles folio_number, public_token, and
@@ -136,11 +136,16 @@ class SyncService {
               fileOptions: const FileOptions(upsert: true),
             );
 
+        // Build full public URL so the web client can display photos directly
+        final photoPublicUrl = _supabaseClient.storage
+            .from('incident-evidence')
+            .getPublicUrl(storagePath);
+
         // Insert to incident_photos table
         await _supabaseClient.from('incident_photos').upsert({
           'id': photo['id'],
           'incident_id': incidentId,
-          'photo_url': storagePath,
+          'photo_url': photoPublicUrl,
           'photo_type': 'evidence',
           'annotations': photo['annotations_json'], // Map string to JSONB?
           // If annotations_json is string, Supabase might expect Map/List if column is JSONB.
