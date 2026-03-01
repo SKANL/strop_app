@@ -57,7 +57,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> sendPasswordResetEmail(String email) async {
     await _supabaseClient.auth.resetPasswordForEmail(
       email,
-      redirectTo: 'https://strop.app/reset-password',
+      redirectTo: 'https://constructora.zentyar.com/reset-password',
     );
   }
 }

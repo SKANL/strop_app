@@ -108,11 +108,14 @@ class _ExpedientePageState extends State<ExpedientePage> {
       '${widget.incident.description ?? ""}\n\n'
       '📍 ${widget.incident.specificLocation ?? widget.incident.location}\n\n'
       'Ver detalles y subir foto de resolución:\n'
-      'https://strop.app/r/$token',
+      'https://constructora.zentyar.com/r/$token',
     );
     final uri = Uri.parse('https://wa.me/?text=$message');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback: open in browser if WhatsApp is not installed
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
     }
   }
 
